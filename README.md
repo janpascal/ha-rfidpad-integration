@@ -1,44 +1,14 @@
 # rfidpad
-Hardware, firmware, and Home Assistant integration for an ESP32 based device to enable and disable a Home Assistant alarm system
-
-# Design goals
-- low-cost (at most 50 euros per panel, comparable to the Zipato RFID Mini Keypad)
-- arm and disarm Home Assistant alarm system using cheap RFID tags
-- panel should not require any wiring
-- panel should run on battery power for at least one year
-
-And if possible also:
-- Configure tags in Home Assistant UI
-- Display list of recent arm and disarm actions in Home Assistant
-- Associate name with each tag
-- Enabled tags should not be stored in the panel, only in Home Assistant
-
-# Hardware panel
-- Based on low power ESP32 board from EZSBC with a LiPo battery (https://www.ezsbc.com/index.php/products/wifi01-cell10.html) and PN532 board from Elechouse (https://www.elechouse.com/elechouse/index.php?main_page=product_info&cPath=90_93&products_id=2276).
-- The device will spend most of the time in deep sleep. The ESP32 should draw less than 20 μA in deep sleep. The PN532 chip itself has a deep sleep mode that should draw around 10 μA.
-- Three pushbuttons to wake up the device and select the new alarm mode (disarm, arm home, arm away)
-- After waking up the device, it will connect to WiFi and an MQTT server
-- When an RFID tag is detected, its ID is sent over MQTT, together with the desired new alarm mode
-- The device listens on MQTT for messages about the Home Assistant alarm mode.
-- Three LEDs on the panel to display the current alarm mode. Also serves as feedback to the user that the mode has been successfully changed
-
-## Hardware challenges:
-- Power usage. The PN532 board has an LED that burns as long as the board is powered. That means the Vcc of the PN532 will need to be switched using e.g. a FET to prevent the board from using too much power during the deep sleep period. Also, the deep sleep mode of the PN532 chip isn't supported by the library supplied by Elechouse.
-- Housing, including the pushbutton and status LEDs.
-
-# Firmware
-Use the Arduino IDE to compile the firmware. Select the ESP32 dev board as the
-target. Upload it to your RFIDPad
-
-# Home Assistant custom component
+This is the Home Assistant custom component for RFIDPad
+(https://www.github.com/janpascal/rfidpad)
 
 ## Prerequisities
 You will need an MQTT server such as Mosquitto. Configure MQTT in your Home
-Assistant installation. Give the homeassistant user read access to
+Assistant installation. Give the homeassistant MQTT user read access to
 `rfidpad/discovery/#`, to `rfidpad/+/battery` and to `rfidpad/+/action`.
 Give it write access to `rfidpad/+/status`.
 
-Add an `rfidpad` user and give it write access to 
+Add an `rfidpad` MQTT user and give it write access to 
 `rfidpad/discovery/#`, to `rfidpad/+/battery` and to `rfidpad/+/action`.
 Give it write access to `rfidpad/+/status`.
 
@@ -46,7 +16,7 @@ Give it write access to `rfidpad/+/status`.
 - First install HACS in Home assistant. See https://hacs.xyz/ for instructions.
 - Open the Community panel in Home Assistant
 - Open the 'hamburger menu' and select 'Custom repositories'
-- Enter https://github.com/janpascal/rfidpad where it says 'Add custom repository URL'. In the Category dropdown select 'Integration' and click 'Add' 
+- Enter https://github.com/janpascal/ha-rfidpad-integration where it says 'Add custom repository URL'. In the Category dropdown select 'Integration' and click 'Add' 
 - Now press the big '+' on the bottom of the screen. Search for 'RFIDPad', select it and click on 'Install this repository in HACS'
 - Configure the RFID custom component by filling in the base MQTT topic. The default (rfidpad) will do if you haven't changed the firmware.
 
@@ -67,3 +37,43 @@ rfidpad:
 and restart Home Assistant
 
 ## Automations
+RFIDPad sends events that can be used in automations. Choose trigger type
+'Event' with event type 'rfidpad.tag_scanned'  and event data 'button: ARM_AWAY'
+to start an automation that is triggered when someone scans their tag and pushed
+the 'ARM AWAY' button. A suggested action would be to call the
+'alarm_control_panel.alarm_arm_away' service on your manual alarm panel.
+
+When the 'ARM HOME' button is pushed, the event data is 'button: ARM_HOME'.
+Similarly, event data 'button: DISARM' is used when the 'DISARM' button is
+pushed after scanning a valid tag.
+
+No event are sent if an unknown tag is scanned.
+
+## History
+The RFIDPad integration keep a history of the most recent tags scanned, the name
+(from configuration.yaml) and which button was pushed. This information can be
+viewed using the `RFIDPad History Card`,
+https://www.github.com/janpascal/ha-rfidpad-history-card.
+
+## Entities
+Each RFIDPad device has two associated entities, one representing the last tag
+scanned (sensor.rfidpad_tag) and one representing the battery level
+(sensor.rfidpad_battery).
+
+
+## License
+Copyright (C) 2020-2021 Jan-Pascal van Best <janpascal@vanbest.org>
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
